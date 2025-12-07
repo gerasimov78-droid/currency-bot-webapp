@@ -153,9 +153,45 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Получаем данные доставок от бота
-        // В реальности они придут через initData
+        // Получаем данные от бота через initDataUnsafe
         let deliveries = [];
+
+        // Пытаемся получить данные от бота
+        try {
+            const initData = tg.initDataUnsafe;
+            console.log('InitData:', initData);
+            
+            // Данные могут быть переданы через query_string
+            if (initData && initData.query_string) {
+                deliveries = JSON.parse(initData.query_string);
+            }
+        } catch (e) {
+            console.error('Ошибка парсинга данных:', e);
+        }
+
+        // ВРЕМЕННО: Если данных нет - показываем тестовые
+        if (deliveries.length === 0) {
+            console.log('Нет данных от бота, показываем тестовые');
+            // Пример данных для разработки
+            deliveries = [
+                {
+                    buffer_id: 1,
+                    date: '2025-12-07',
+                    client: 'Иван Петров',
+                    pair: 'RUB/EURO',
+                    vydano: 1000,
+                    courier_comment: 'Адрес: ул. Ленина 10, кв. 5. Позвонить за 30 минут.'
+                },
+                {
+                    buffer_id: 2,
+                    date: '2025-12-07',
+                    client: 'Мария Сидорова',
+                    pair: 'USDT/EURO',
+                    vydano: 500,
+                    courier_comment: ''
+                }
+            ];
+        }
 
         function renderDeliveries() {
             const container = document.getElementById('deliveries-container');
@@ -252,30 +288,8 @@
             tg.sendData(JSON.stringify(data));
         }
 
-        // Имитация загрузки данных (в реальности придут от бота)
-        setTimeout(() => {
-            // Пример данных
-            deliveries = [
-                {
-                    buffer_id: 1,
-                    date: '2025-12-07',
-                    client: 'Иван Петров',
-                    pair: 'RUB/EURO',
-                    vydano: 1000,
-                    courier_comment: 'Адрес: ул. Ленина 10, кв. 5. Позвонить за 30 минут.'
-                },
-                {
-                    buffer_id: 2,
-                    date: '2025-12-07',
-                    client: 'Мария Сидорова',
-                    pair: 'USDT/EURO',
-                    vydano: 500,
-                    courier_comment: ''
-                }
-            ];
-
-            renderDeliveries();
-        }, 500);
+        // Рендерим доставки сразу
+        renderDeliveries();
 
         tg.ready();
     </script>
