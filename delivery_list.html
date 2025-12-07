@@ -153,44 +153,32 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Получаем данные от бота через initDataUnsafe
+        // URL Apps Script API
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxYJqkAsbvSa63oeqxNmBp05NQIQuOLZyDzjscwvnDU4a-SCfrKe1JTicTlofscgUF-yg/exec';
+
         let deliveries = [];
 
-        // Пытаемся получить данные от бота
-        try {
-            const initData = tg.initDataUnsafe;
-            console.log('InitData:', initData);
-            
-            // Данные могут быть переданы через query_string
-            if (initData && initData.query_string) {
-                deliveries = JSON.parse(initData.query_string);
-            }
-        } catch (e) {
-            console.error('Ошибка парсинга данных:', e);
-        }
-
-        // ВРЕМЕННО: Если данных нет - показываем тестовые
-        if (deliveries.length === 0) {
-            console.log('Нет данных от бота, показываем тестовые');
-            // Пример данных для разработки
-            deliveries = [
-                {
-                    buffer_id: 1,
-                    date: '2025-12-07',
-                    client: 'Иван Петров',
-                    pair: 'RUB/EURO',
-                    vydano: 1000,
-                    courier_comment: 'Адрес: ул. Ленина 10, кв. 5. Позвонить за 30 минут.'
-                },
-                {
-                    buffer_id: 2,
-                    date: '2025-12-07',
-                    client: 'Мария Сидорова',
-                    pair: 'USDT/EURO',
-                    vydano: 500,
-                    courier_comment: ''
+        // Загружаем реальные данные из Google Sheets
+        async function loadDeliveries() {
+            try {
+                const response = await fetch(API_URL + '?action=get_deliveries');
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('Ошибка API:', data.error);
+                    alert('Ошибка загрузки данных: ' + data.error);
+                    return;
                 }
-            ];
+                
+                deliveries = data.deliveries || [];
+                console.log('Загружено доставок:', deliveries.length);
+                
+                renderDeliveries();
+                
+            } catch (e) {
+                console.error('Ошибка загрузки:', e);
+                alert('Ошибка загрузки данных');
+            }
         }
 
         function renderDeliveries() {
@@ -288,8 +276,8 @@
             tg.sendData(JSON.stringify(data));
         }
 
-        // Рендерим доставки сразу
-        renderDeliveries();
+        // Загружаем доставки при открытии
+        loadDeliveries();
 
         tg.ready();
     </script>
