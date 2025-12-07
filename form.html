@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавить операцию</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+
+        .form-container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group.hidden {
+            display: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--tg-theme-hint-color, #cccccc);
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .info-box {
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .pair-info {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #1976d2;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .required {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h2>➕ Добавить операцию</h2>
+
+        <div id="error-message" class="error hidden"></div>
+
+        <form id="operationForm">
+            <!-- Дата -->
+            <div class="form-group">
+                <label for="date">Дата <span class="required">*</span></label>
+                <input type="date" id="date" required>
+            </div>
+
+            <!-- Клиент -->
+            <div class="form-group">
+                <label for="client">Клиент <span class="required">*</span></label>
+                <input type="text" id="client" placeholder="Имя клиента" required>
+            </div>
+
+            <!-- Пара валют / Тип операции -->
+            <div class="form-group">
+                <label for="pair">Выберите операцию <span class="required">*</span></label>
+                <select id="pair" required>
+                    <option value="">-- Выберите операцию --</option>
+                    <option value="RUB/EURO">RUB/EURO</option>
+                    <option value="RUB/USDT">RUB/USDT</option>
+                    <option value="USDT/EURO">USDT/EURO</option>
+                    <option value="ПОПОЛНЕНИЕ">💰 ПОПОЛНЕНИЕ</option>
+                </select>
+            </div>
+
+            <!-- Информация о паре -->
+            <div id="pairInfo" class="pair-info hidden"></div>
+
+            <!-- Поля для RUB/EURO -->
+            <div id="fields-rub-euro" class="hidden">
+                <div class="form-group">
+                    <label for="vydano-rub-euro">Выдано (EUR) <span class="required">*</span></label>
+                    <input type="number" id="vydano-rub-euro" step="0.01" placeholder="1000.00">
+                </div>
+                <div class="form-group">
+                    <label for="kurs-final-rub-euro">Курс финал <span class="required">*</span></label>
+                    <input type="number" id="kurs-final-rub-euro" step="0.01" placeholder="94.00">
+                </div>
+            </div>
+
+            <!-- Поля для RUB/USDT -->
+            <div id="fields-rub-usdt" class="hidden">
+                <div class="form-group">
+                    <label for="prinyato-rub-usdt">Принято (RUB) <span class="required">*</span></label>
+                    <input type="number" id="prinyato-rub-usdt" step="0.01" placeholder="10000.00">
+                </div>
+                <div class="form-group">
+                    <label for="nacenka-rub-usdt">Наценка % <span class="required">*</span></label>
+                    <input type="number" id="nacenka-rub-usdt" step="0.01" placeholder="3.00">
+                </div>
+            </div>
+
+            <!-- Поля для USDT/EURO -->
+            <div id="fields-usdt-euro" class="hidden">
+                <div class="form-group">
+                    <label for="vydano-usdt-euro">Выдано (EUR) <span class="required">*</span></label>
+                    <input type="number" id="vydano-usdt-euro" step="0.01" placeholder="1000.00">
+                </div>
+                <div class="form-group">
+                    <label for="nacenka-usdt-euro">Наценка % <span class="required">*</span></label>
+                    <input type="number" id="nacenka-usdt-euro" step="0.01" placeholder="2.00">
+                    <small>Автоматически подставлено значение Доплата из бота</small>
+                </div>
+            </div>
+
+            <!-- Поля для ПОПОЛНЕНИЕ -->
+            <div id="fields-popolnenie" class="hidden">
+                <div class="form-group">
+                    <label for="summa-popolnenie">Сумма (EUR) <span class="required">*</span></label>
+                    <input type="number" id="summa-popolnenie" step="0.01" placeholder="500.00">
+                </div>
+                <div class="info-box">
+                    ℹ️ Пополнение кассы будет отражено в вашем балансе
+                </div>
+            </div>
+
+            <!-- Доставка курьером -->
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="delivery">
+                    <label for="delivery" style="margin: 0;">Доставка курьером</label>
+                </div>
+            </div>
+
+            <!-- Комментарий для курьера -->
+            <div id="courier-comment-group" class="form-group hidden">
+                <label for="courier-comment">Комментарий для курьера</label>
+                <textarea id="courier-comment" placeholder="Адрес, время, особые пожелания..."></textarea>
+            </div>
+        </form>
+
+        <div id="loading" class="loading hidden">
+            Загрузка данных...
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Данные из rates.json (будут загружены через бота)
+        let ratesData = null;
+
+        // Установка сегодняшней даты
+        document.getElementById('date').valueAsDate = new Date();
+
+        // Обработка выбора пары
+        document.getElementById('pair').addEventListener('change', function() {
+            const pair = this.value;
+            
+            // Скрываем все поля
+            document.getElementById('fields-rub-euro').classList.add('hidden');
+            document.getElementById('fields-rub-usdt').classList.add('hidden');
+            document.getElementById('fields-usdt-euro').classList.add('hidden');
+            document.getElementById('fields-popolnenie').classList.add('hidden');
+            document.getElementById('pairInfo').classList.add('hidden');
+
+            // Показываем нужные поля
+            if (pair === 'RUB/EURO') {
+                document.getElementById('fields-rub-euro').classList.remove('hidden');
+                showPairInfo('RUB/EURO');
+            } else if (pair === 'RUB/USDT') {
+                document.getElementById('fields-rub-usdt').classList.remove('hidden');
+                showPairInfo('RUB/USDT');
+            } else if (pair === 'USDT/EURO') {
+                document.getElementById('fields-usdt-euro').classList.remove('hidden');
+                showPairInfo('USDT/EURO');
+                
+                // Предзаполняем наценку из доплаты
+                if (ratesData && ratesData.doplata) {
+                    document.getElementById('nacenka-usdt-euro').value = ratesData.doplata;
+                }
+            } else if (pair === 'ПОПОЛНЕНИЕ') {
+                document.getElementById('fields-popolnenie').classList.remove('hidden');
+            }
+
+            // Обновляем главную кнопку
+            updateMainButton();
+        });
+
+        // Показ информации о паре
+        function showPairInfo(pair) {
+            const infoBox = document.getElementById('pairInfo');
+            if (!ratesData) return;
+
+            let info = '';
+            if (pair === 'RUB/EURO') {
+                const sebes = ratesData.rub_euro_sebestoimost || 'N/A';
+                info = `ℹ️ Себестоимость RUB/EURO: ${sebes.toFixed(2)} ₽`;
+            } else if (pair === 'RUB/USDT') {
+                const prodazha = ratesData.rub_usdt_prodazha || 'N/A';
+                info = `ℹ️ RUB/USDT (продажа): ${prodazha.toFixed(2)} ₽`;
+            } else if (pair === 'USDT/EURO') {
+                const usdt_euro = ratesData.usdt_euro || 'N/A';
+                info = `ℹ️ USDT/EURO: ${usdt_euro.toFixed(4)}`;
+            }
+
+            infoBox.textContent = info;
+            infoBox.classList.remove('hidden');
+        }
+
+        // Обработка чекбокса доставки
+        document.getElementById('delivery').addEventListener('change', function() {
+            const commentGroup = document.getElementById('courier-comment-group');
+            if (this.checked) {
+                commentGroup.classList.remove('hidden');
+            } else {
+                commentGroup.classList.add('hidden');
+                document.getElementById('courier-comment').value = '';
+            }
+        });
+
+        // Обновление главной кнопки
+        function updateMainButton() {
+            const pair = document.getElementById('pair').value;
+            if (pair) {
+                tg.MainButton.setText('✅ Добавить операцию');
+                tg.MainButton.show();
+            } else {
+                tg.MainButton.hide();
+            }
+        }
+
+        // Обработка отправки
+        tg.MainButton.onClick(function() {
+            submitForm();
+        });
+
+        function submitForm() {
+            const date = document.getElementById('date').value;
+            const client = document.getElementById('client').value;
+            const pair = document.getElementById('pair').value;
+            const delivery = document.getElementById('delivery').checked;
+            const courierComment = document.getElementById('courier-comment').value;
+
+            // Валидация
+            if (!date || !client || !pair) {
+                showError('Заполните обязательные поля');
+                return;
+            }
+
+            // Собираем данные в зависимости от пары
+            let operationData = {
+                date: date,
+                client: client,
+                pair: pair,
+                delivery: delivery,
+                courier_comment: courierComment
+            };
+
+            if (pair === 'RUB/EURO') {
+                const vydano = document.getElementById('vydano-rub-euro').value;
+                const kursFinal = document.getElementById('kurs-final-rub-euro').value;
+                
+                if (!vydano || !kursFinal) {
+                    showError('Заполните все поля для RUB/EURO');
+                    return;
+                }
+                
+                operationData.vydano = parseFloat(vydano);
+                operationData.kurs_final = parseFloat(kursFinal);
+                
+            } else if (pair === 'RUB/USDT') {
+                const prinyato = document.getElementById('prinyato-rub-usdt').value;
+                const nacenka = document.getElementById('nacenka-rub-usdt').value;
+                
+                if (!prinyato || !nacenka) {
+                    showError('Заполните все поля для RUB/USDT');
+                    return;
+                }
+                
+                operationData.prinyato = parseFloat(prinyato);
+                operationData.nacenka = parseFloat(nacenka);
+                
+            } else if (pair === 'USDT/EURO') {
+                const vydano = document.getElementById('vydano-usdt-euro').value;
+                const nacenka = document.getElementById('nacenka-usdt-euro').value || ratesData.doplata;
+                
+                if (!vydano) {
+                    showError('Заполните поле "Выдано" для USDT/EURO');
+                    return;
+                }
+                
+                operationData.vydano = parseFloat(vydano);
+                operationData.nacenka = parseFloat(nacenka);
+            } else if (pair === 'ПОПОЛНЕНИЕ') {
+                const summa = document.getElementById('summa-popolnenie').value;
+                
+                if (!summa) {
+                    showError('Заполните поле "Сумма" для пополнения');
+                    return;
+                }
+                
+                operationData.summa = parseFloat(summa);
+                operationData.is_refill = true;  // Флаг что это пополнение
+            }
+
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify(operationData));
+        }
+
+        function showError(message) {
+            const errorBox = document.getElementById('error-message');
+            errorBox.textContent = '❌ ' + message;
+            errorBox.classList.remove('hidden');
+            
+            setTimeout(() => {
+                errorBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Получение данных от бота при загрузке
+        tg.ready();
+        
+        // Имитация загрузки данных (в реальности придут от бота)
+        setTimeout(() => {
+            // Эти данные будут переданы через initData или initDataUnsafe
+            ratesData = {
+                doplata: 1.75,
+                rub_euro_sebestoimost: 89.83,
+                rub_usdt_prodazha: 78.70,
+                usdt_euro: 0.86
+            };
+            
+            document.getElementById('loading').classList.add('hidden');
+        }, 500);
+    </script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои доставки</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .delivery-card {
+            background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+        }
+
+        .delivery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+        }
+
+        .delivery-id {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--tg-theme-link-color, #3390ec);
+        }
+
+        .delivery-date {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        .delivery-info {
+            margin-bottom: 12px;
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+
+        .info-label {
+            font-weight: 500;
+            min-width: 100px;
+            color: var(--tg-theme-hint-color, #666666);
+        }
+
+        .info-value {
+            flex: 1;
+            font-weight: 600;
+        }
+
+        .editable-field {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid var(--tg-theme-link-color, #3390ec);
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        .comment {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 12px 0;
+            font-size: 13px;
+        }
+
+        .btn-complete {
+            width: 100%;
+            padding: 14px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .btn-complete:active {
+            background-color: #45a049;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Мои доставки</h1>
+
+        <div id="loading" class="loading">
+            Загрузка...
+        </div>
+
+        <div id="deliveries-container"></div>
+
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <div class="empty-state-icon">✅</div>
+            <p>Нет активных доставок</p>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Получаем данные доставок от бота
+        // В реальности они придут через initData
+        let deliveries = [];
+
+        function renderDeliveries() {
+            const container = document.getElementById('deliveries-container');
+            const loading = document.getElementById('loading');
+            const emptyState = document.getElementById('empty-state');
+
+            loading.style.display = 'none';
+
+            if (deliveries.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            deliveries.forEach(delivery => {
+                const card = createDeliveryCard(delivery);
+                container.appendChild(card);
+            });
+        }
+
+        function createDeliveryCard(delivery) {
+            const card = document.createElement('div');
+            card.className = 'delivery-card';
+
+            // Определяем валюту выхода из пары
+            const pair = delivery.pair || '';
+            const currencyOut = pair.split('/')[1] || 'EUR';
+
+            card.innerHTML = `
+                <div class="delivery-header">
+                    <div class="delivery-id">Доставка #${delivery.buffer_id}</div>
+                    <div class="delivery-date">${delivery.date}</div>
+                </div>
+
+                <div class="delivery-info">
+                    <div class="info-row">
+                        <div class="info-label">Клиент:</div>
+                        <div class="info-value">${delivery.client || 'N/A'}</div>
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">Валюта:</div>
+                        <div class="info-value">${currencyOut}</div>
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">Выдать:</div>
+                        <div class="info-value">
+                            <input 
+                                type="number" 
+                                class="editable-field" 
+                                value="${delivery.vydano}" 
+                                step="0.01"
+                                id="vydano-${delivery.buffer_id}"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                ${delivery.courier_comment ? `
+                    <div class="comment">
+                        💬 Комментарий: ${delivery.courier_comment}
+                    </div>
+                ` : ''}
+
+                <button 
+                    class="btn-complete" 
+                    onclick="completeDelivery(${delivery.buffer_id})"
+                >
+                    ✅ Выполнено
+                </button>
+            `;
+
+            return card;
+        }
+
+        function completeDelivery(bufferId) {
+            const vydanoInput = document.getElementById(`vydano-${bufferId}`);
+            const updatedVydano = parseFloat(vydanoInput.value);
+
+            if (isNaN(updatedVydano) || updatedVydano <= 0) {
+                alert('Введите корректную сумму');
+                return;
+            }
+
+            // Отправляем данные боту
+            const data = {
+                action: 'complete_delivery',
+                buffer_id: bufferId,
+                updated_vydano: updatedVydano
+            };
+
+            tg.sendData(JSON.stringify(data));
+        }
+
+        // Имитация загрузки данных (в реальности придут от бота)
+        setTimeout(() => {
+            // Пример данных
+            deliveries = [
+                {
+                    buffer_id: 1,
+                    date: '2025-12-07',
+                    client: 'Иван Петров',
+                    pair: 'RUB/EURO',
+                    vydano: 1000,
+                    courier_comment: 'Адрес: ул. Ленина 10, кв. 5. Позвонить за 30 минут.'
+                },
+                {
+                    buffer_id: 2,
+                    date: '2025-12-07',
+                    client: 'Мария Сидорова',
+                    pair: 'USDT/EURO',
+                    vydano: 500,
+                    courier_comment: ''
+                }
+            ];
+
+            renderDeliveries();
+        }, 500);
+
+        tg.ready();
+    </script>
+</body>
+</html>
