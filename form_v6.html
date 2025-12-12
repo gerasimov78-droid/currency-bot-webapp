@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавить операцию</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+        
+        .form-container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        h2 {
+            margin-bottom: 20px;
+            color: var(--tg-theme-text-color, #000000);
+            font-size: 24px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+            border-radius: 8px;
+            font-size: 16px;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--tg-theme-button-color, #3390ec);
+        }
+        
+        input:disabled {
+            background: #f5f5f5;
+            color: #999;
+            cursor: not-allowed;
+        }
+        
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+        }
+        
+        .error {
+            color: #ff3b30;
+            font-size: 13px;
+            margin-top: 4px;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        .pair-fields {
+            display: none;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+            background: #f9f9f9;
+        }
+        
+        .pair-fields.active {
+            display: block;
+        }
+        
+        .field-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+            font-style: italic;
+        }
+        
+        .filled-count {
+            font-size: 12px;
+            color: #666;
+            text-align: right;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h2>➕ Добавить операцию</h2>
+        
+        <form id="operationForm">
+            <!-- Дата -->
+            <div class="form-group">
+                <label for="date">Дата операции</label>
+                <input type="date" id="date" name="date" required>
+            </div>
+            
+            <!-- Клиент -->
+            <div class="form-group">
+                <label for="client">Клиент</label>
+                <input type="text" id="client" name="client" placeholder="Имя клиента" required>
+            </div>
+            
+            <!-- Пара валют -->
+            <div class="form-group">
+                <label for="pair">Пара валют</label>
+                <select id="pair" name="pair" required>
+                    <option value="">Выберите пару</option>
+                    <option value="RUB/EURO">RUB/EURO</option>
+                    <option value="RUB/USDT">RUB/USDT</option>
+                    <option value="USDT/EURO">USDT/EURO</option>
+                </select>
+            </div>
+            
+            <!-- RUB/EURO поля -->
+            <div id="rub-euro-fields" class="pair-fields">
+                <div class="info-text">Заполните любые 2 поля из 4</div>
+                <div class="field-grid">
+                    <div class="form-group">
+                        <label>Рубли</label>
+                        <input type="number" step="0.01" name="rub_euro_rub" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Наценка %</label>
+                        <input type="number" step="0.01" name="rub_euro_nacenka" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Курс</label>
+                        <input type="number" step="0.01" name="rub_euro_kurs" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Евро</label>
+                        <input type="number" step="0.01" name="rub_euro_euro" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="filled-count" id="rub-euro-count">Заполнено: 0 из 2</div>
+            </div>
+            
+            <!-- RUB/USDT поля -->
+            <div id="rub-usdt-fields" class="pair-fields">
+                <div class="info-text">Заполните любые 2 поля из 4</div>
+                <div class="field-grid">
+                    <div class="form-group">
+                        <label>Рубли</label>
+                        <input type="number" step="0.01" name="rub_usdt_rub" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Наценка %</label>
+                        <input type="number" step="0.01" name="rub_usdt_nacenka" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Курс</label>
+                        <input type="number" step="0.01" name="rub_usdt_kurs" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>USDT</label>
+                        <input type="number" step="0.01" name="rub_usdt_usdt" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="filled-count" id="rub-usdt-count">Заполнено: 0 из 2</div>
+            </div>
+            
+            <!-- USDT/EURO поля -->
+            <div id="usdt-euro-fields" class="pair-fields">
+                <div class="info-text">Заполните одно из полей (наценка фиксированная)</div>
+                <div class="field-grid">
+                    <div class="form-group">
+                        <label>USDT</label>
+                        <input type="number" step="0.01" name="usdt_euro_usdt" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Евро</label>
+                        <input type="number" step="0.01" name="usdt_euro_euro" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="filled-count" id="usdt-euro-count">Заполнено: 0 из 1</div>
+            </div>
+            
+            <!-- Статус оплаты -->
+            <div class="form-group" id="payment-status-group" style="display:none;">
+                <label for="payment_status">Статус оплаты</label>
+                <select id="payment_status" name="payment_status">
+                    <option value="received">✅ Поступила</option>
+                    <option value="waiting">⏳ Ожидает</option>
+                </select>
+            </div>
+            
+            <!-- Доставка курьером -->
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="has_delivery" name="has_delivery">
+                    <label for="has_delivery">Доставит курьер</label>
+                </div>
+            </div>
+            
+            <!-- Комментарий для курьера -->
+            <div class="form-group" id="comment-group" style="display:none;">
+                <label for="courier_comment">Комментарий для курьера</label>
+                <textarea id="courier_comment" name="courier_comment" placeholder="Адрес, время, детали..."></textarea>
+            </div>
+            
+            <div class="error" id="error-message"></div>
+        </form>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.MainButton.setText('Добавить операцию');
+        tg.MainButton.show();
+        
+        const form = document.getElementById('operationForm');
+        const pairSelect = document.getElementById('pair');
+        const hasDeliveryCheckbox = document.getElementById('has_delivery');
+        const commentGroup = document.getElementById('comment-group');
+        const paymentStatusGroup = document.getElementById('payment-status-group');
+        const errorMessage = document.getElementById('error-message');
+        
+        // Устанавливаем сегодняшнюю дату
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+        
+        // Показываем поля в зависимости от пары
+        pairSelect.addEventListener('change', function() {
+            document.querySelectorAll('.pair-fields').forEach(el => el.classList.remove('active'));
+            
+            if (this.value === 'RUB/EURO') {
+                document.getElementById('rub-euro-fields').classList.add('active');
+            } else if (this.value === 'RUB/USDT') {
+                document.getElementById('rub-usdt-fields').classList.add('active');
+            } else if (this.value === 'USDT/EURO') {
+                document.getElementById('usdt-euro-fields').classList.add('active');
+            }
+            
+            // Показываем статус оплаты только если выбрана пара
+            if (this.value) {
+                paymentStatusGroup.style.display = 'block';
+            } else {
+                paymentStatusGroup.style.display = 'none';
+            }
+            
+            updateFieldCounts();
+        });
+        
+        // Показываем комментарий если выбрана доставка
+        hasDeliveryCheckbox.addEventListener('change', function() {
+            commentGroup.style.display = this.checked ? 'block' : 'none';
+        });
+        
+        // Отслеживаем заполненность полей
+        function updateFieldCounts() {
+            const pair = pairSelect.value;
+            
+            if (pair === 'RUB/EURO') {
+                const fields = ['rub_euro_rub', 'rub_euro_nacenka', 'rub_euro_kurs', 'rub_euro_euro'];
+                const filled = fields.filter(name => {
+                    const val = document.querySelector(`[name="${name}"]`).value;
+                    return val && val !== '';
+                }).length;
+                document.getElementById('rub-euro-count').textContent = `Заполнено: ${filled} из 2`;
+            } else if (pair === 'RUB/USDT') {
+                const fields = ['rub_usdt_rub', 'rub_usdt_nacenka', 'rub_usdt_kurs', 'rub_usdt_usdt'];
+                const filled = fields.filter(name => {
+                    const val = document.querySelector(`[name="${name}"]`).value;
+                    return val && val !== '';
+                }).length;
+                document.getElementById('rub-usdt-count').textContent = `Заполнено: ${filled} из 2`;
+            } else if (pair === 'USDT/EURO') {
+                const fields = ['usdt_euro_usdt', 'usdt_euro_euro'];
+                const filled = fields.filter(name => {
+                    const val = document.querySelector(`[name="${name}"]`).value;
+                    return val && val !== '';
+                }).length;
+                document.getElementById('usdt-euro-count').textContent = `Заполнено: ${filled} из 1`;
+            }
+        }
+        
+        // Обновляем счетчик при вводе
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', updateFieldCounts);
+        });
+        
+        // Валидация и отправка
+        tg.MainButton.onClick(function() {
+            errorMessage.classList.remove('show');
+            
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Базовая валидация
+            if (!data.date || !data.client || !data.pair) {
+                showError('Заполните все обязательные поля');
+                return;
+            }
+            
+            // Валидация полей в зависимости от пары
+            const pair = data.pair;
+            let filledFields = {};
+            
+            if (pair === 'RUB/EURO') {
+                const fields = {
+                    rub: data.rub_euro_rub,
+                    nacenka: data.rub_euro_nacenka,
+                    kurs: data.rub_euro_kurs,
+                    euro: data.rub_euro_euro
+                };
+                
+                filledFields = Object.entries(fields)
+                    .filter(([key, val]) => val && val !== '')
+                    .reduce((obj, [key, val]) => ({ ...obj, [key]: parseFloat(val) }), {});
+                
+                const count = Object.keys(filledFields).length;
+                if (count < 2) {
+                    showError('Для RUB/EURO нужно заполнить минимум 2 поля');
+                    return;
+                }
+            } else if (pair === 'RUB/USDT') {
+                const fields = {
+                    rub: data.rub_usdt_rub,
+                    nacenka: data.rub_usdt_nacenka,
+                    kurs: data.rub_usdt_kurs,
+                    usdt: data.rub_usdt_usdt
+                };
+                
+                filledFields = Object.entries(fields)
+                    .filter(([key, val]) => val && val !== '')
+                    .reduce((obj, [key, val]) => ({ ...obj, [key]: parseFloat(val) }), {});
+                
+                const count = Object.keys(filledFields).length;
+                if (count < 2) {
+                    showError('Для RUB/USDT нужно заполнить минимум 2 поля');
+                    return;
+                }
+            } else if (pair === 'USDT/EURO') {
+                const fields = {
+                    usdt: data.usdt_euro_usdt,
+                    euro: data.usdt_euro_euro
+                };
+                
+                filledFields = Object.entries(fields)
+                    .filter(([key, val]) => val && val !== '')
+                    .reduce((obj, [key, val]) => ({ ...obj, [key]: parseFloat(val) }), {});
+                
+                const count = Object.keys(filledFields).length;
+                if (count < 1) {
+                    showError('Для USDT/EURO нужно заполнить хотя бы одно поле');
+                    return;
+                }
+            }
+            
+            // Формируем данные для отправки
+            const sendData = {
+                date: data.date,
+                client: data.client,
+                pair: data.pair,
+                filled_fields: filledFields,
+                has_delivery: data.has_delivery === 'on',
+                courier_comment: data.courier_comment || '',
+                payment_status: data.payment_status || 'received'
+            };
+            
+            console.log('Sending:', sendData);
+            tg.sendData(JSON.stringify(sendData));
+        });
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            tg.MainButton.showProgress(false);
+        }
+    </script>
+</body>
+</html>

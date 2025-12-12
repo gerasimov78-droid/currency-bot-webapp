@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление доставками</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #f5f5f5);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 12px;
+            padding-bottom: 60px;
+        }
+        
+        h2 {
+            margin-bottom: 16px;
+            font-size: 20px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        
+        th {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        td {
+            padding: 12px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 14px;
+        }
+        
+        tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-received {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .btn {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.1s;
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-payment {
+            background: #ffc107;
+        }
+        
+        .btn-edit {
+            background: #17a2b8;
+        }
+        
+        .btn-delete {
+            background: #dc3545;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .modal-body {
+            margin-bottom: 20px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        
+        .modal-btn-primary {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: white;
+        }
+        
+        .modal-btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <h2>📦 Управление доставками</h2>
+    
+    <div id="loading" class="loading">
+        <div>⏳ Загрузка...</div>
+    </div>
+    
+    <div id="content" style="display:none;">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Дата</th>
+                        <th>Клиент</th>
+                        <th>Оплата</th>
+                        <th>Курс</th>
+                        <th>Сумма</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="deliveries-table">
+                    <!-- Заполняется JS -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="empty-state" class="empty-state" style="display:none;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+            </svg>
+            <div>Нет активных доставок</div>
+        </div>
+    </div>
+    
+    <!-- Модалка изменения статуса оплаты -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">💰 Изменить статус оплаты</div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Новый статус</label>
+                    <select id="new-payment-status">
+                        <option value="received">✅ Поступила</option>
+                        <option value="waiting">⏳ Ожидает</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closePaymentModal()">Отмена</button>
+                <button class="modal-btn modal-btn-primary" onclick="savePaymentStatus()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модалка изменения суммы -->
+    <div id="amount-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">✏️ Изменить сумму</div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Новая сумма (EUR)</label>
+                    <input type="number" step="0.01" id="new-amount" placeholder="0.00">
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closeAmountModal()">Отмена</button>
+                <button class="modal-btn modal-btn-primary" onclick="saveAmount()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модалка удаления -->
+    <div id="delete-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">❌ Удалить доставку?</div>
+            <div class="modal-body">
+                <p>Вы уверены, что хотите удалить эту доставку? Это действие нельзя отменить.</p>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closeDeleteModal()">Отмена</button>
+                <button class="modal-btn modal-btn-primary" style="background:#dc3545;" onclick="confirmDelete()">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        let deliveries = [];
+        let currentDeliveryId = null;
+        
+        // Загрузка данных
+        async function loadDeliveries() {
+            try {
+                // Здесь будет запрос к боту через initDataUnsafe
+                const initData = tg.initDataUnsafe;
+                const username = initData.user?.username;
+                
+                // Пока моковые данные для демо
+                setTimeout(() => {
+                    deliveries = [
+                        {
+                            buffer_id: 123,
+                            date: '2025-12-09',
+                            client: 'Мария',
+                            payment_status: 'waiting',
+                            kurs: 91.50,
+                            vydano: 1000.00,
+                            pair: 'RUB/EURO'
+                        },
+                        {
+                            buffer_id: 124,
+                            date: '2025-12-10',
+                            client: 'Иван',
+                            payment_status: 'received',
+                            kurs: 92.00,
+                            vydano: 500.00,
+                            pair: 'RUB/EURO'
+                        }
+                    ];
+                    
+                    renderDeliveries();
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('content').style.display = 'block';
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error loading:', error);
+                document.getElementById('loading').innerHTML = '<div>❌ Ошибка загрузки</div>';
+            }
+        }
+        
+        function renderDeliveries() {
+            const table = document.getElementById('deliveries-table');
+            const emptyState = document.getElementById('empty-state');
+            
+            if (deliveries.length === 0) {
+                emptyState.style.display = 'block';
+                table.innerHTML = '';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            
+            table.innerHTML = deliveries.map(d => `
+                <tr>
+                    <td><b>#${d.buffer_id}</b></td>
+                    <td>${d.date}</td>
+                    <td>${d.client}</td>
+                    <td>
+                        <span class="status-badge status-${d.payment_status}">
+                            ${d.payment_status === 'received' ? '✅ Поступила' : '⏳ Ожидает'}
+                        </span>
+                    </td>
+                    <td>${d.kurs.toFixed(2)}</td>
+                    <td><b>${d.vydano.toFixed(2)} EUR</b></td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-payment" onclick="openPaymentModal(${d.buffer_id}, '${d.payment_status}')">💰</button>
+                            <button class="btn btn-edit" onclick="openAmountModal(${d.buffer_id}, ${d.vydano})">✏️</button>
+                            <button class="btn btn-delete" onclick="openDeleteModal(${d.buffer_id})">❌</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // Модалка оплаты
+        function openPaymentModal(id, currentStatus) {
+            currentDeliveryId = id;
+            document.getElementById('new-payment-status').value = currentStatus;
+            document.getElementById('payment-modal').classList.add('show');
+        }
+        
+        function closePaymentModal() {
+            document.getElementById('payment-modal').classList.remove('show');
+            currentDeliveryId = null;
+        }
+        
+        function savePaymentStatus() {
+            const newStatus = document.getElementById('new-payment-status').value;
+            
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify({
+                action: 'update_payment_status',
+                buffer_id: currentDeliveryId,
+                new_status: newStatus
+            }));
+            
+            closePaymentModal();
+        }
+        
+        // Модалка суммы
+        function openAmountModal(id, currentAmount) {
+            currentDeliveryId = id;
+            document.getElementById('new-amount').value = currentAmount;
+            document.getElementById('amount-modal').classList.add('show');
+        }
+        
+        function closeAmountModal() {
+            document.getElementById('amount-modal').classList.remove('show');
+            currentDeliveryId = null;
+        }
+        
+        function saveAmount() {
+            const newAmount = parseFloat(document.getElementById('new-amount').value);
+            
+            if (!newAmount || newAmount <= 0) {
+                alert('Введите корректную сумму');
+                return;
+            }
+            
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify({
+                action: 'update_amount',
+                buffer_id: currentDeliveryId,
+                new_amount: newAmount
+            }));
+            
+            closeAmountModal();
+        }
+        
+        // Модалка удаления
+        function openDeleteModal(id) {
+            currentDeliveryId = id;
+            document.getElementById('delete-modal').classList.add('show');
+        }
+        
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.remove('show');
+            currentDeliveryId = null;
+        }
+        
+        function confirmDelete() {
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify({
+                action: 'delete_delivery',
+                buffer_id: currentDeliveryId
+            }));
+            
+            closeDeleteModal();
+        }
+        
+        // Загружаем при открытии
+        loadDeliveries();
+    </script>
+</body>
+</html>
