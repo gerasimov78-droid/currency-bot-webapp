@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои доставки</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px;
+        }
+
+        .debug-info {
+            background: #f0f0f0;
+            border: 2px solid #333;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .error {
+            background: #fee;
+            border: 2px solid #f00;
+            color: #c00;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .success {
+            background: #efe;
+            border: 2px solid #0f0;
+            color: #060;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📦 Отладка delivery_manager</h1>
+    </div>
+
+    <div id="debug-container"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Отладочная информация
+        function showDebugInfo() {
+            const container = document.getElementById('debug-container');
+            
+            let html = '<div class="debug-info">';
+            html += '<strong>DEBUG INFO:</strong>\n\n';
+            
+            // Проверяем tg object
+            html += `tg существует: ${typeof tg !== 'undefined' ? 'ДА ✅' : 'НЕТ ❌'}\n`;
+            html += `tg.version: ${tg.version || 'undefined'}\n`;
+            html += `tg.platform: ${tg.platform || 'undefined'}\n\n`;
+            
+            // Проверяем initData
+            html += `tg.initData: ${tg.initData ? 'ЕСТЬ ✅' : 'НЕТ ❌'}\n`;
+            html += `tg.initData length: ${tg.initData?.length || 0}\n\n`;
+            
+            // Проверяем initDataUnsafe
+            html += `tg.initDataUnsafe: ${tg.initDataUnsafe ? 'ЕСТЬ ✅' : 'НЕТ ❌'}\n`;
+            
+            if (tg.initDataUnsafe) {
+                html += `\ninitDataUnsafe keys: ${Object.keys(tg.initDataUnsafe).join(', ')}\n\n`;
+                
+                // Проверяем user
+                if (tg.initDataUnsafe.user) {
+                    html += `user.id: ${tg.initDataUnsafe.user.id || 'undefined'}\n`;
+                    html += `user.first_name: ${tg.initDataUnsafe.user.first_name || 'undefined'}\n`;
+                    html += `user.last_name: ${tg.initDataUnsafe.user.last_name || 'undefined'}\n`;
+                    html += `user.username: ${tg.initDataUnsafe.user.username || 'undefined ❌'}\n`;
+                    html += `user.language_code: ${tg.initDataUnsafe.user.language_code || 'undefined'}\n`;
+                    
+                    // Полный объект user
+                    html += `\nПолный объект user:\n${JSON.stringify(tg.initDataUnsafe.user, null, 2)}\n`;
+                } else {
+                    html += `\nuser: НЕТ ❌\n`;
+                }
+                
+                // Полный объект initDataUnsafe
+                html += `\nПолный объект initDataUnsafe:\n${JSON.stringify(tg.initDataUnsafe, null, 2)}\n`;
+            }
+            
+            html += '</div>';
+            
+            // Проверяем что username есть
+            const username = tg.initDataUnsafe?.user?.username;
+            
+            if (username) {
+                html += `<div class="success">✅ Username найден: @${username}</div>`;
+            } else {
+                html += `<div class="error">❌ Username НЕ НАЙДЕН!<br><br>`;
+                html += `Возможные причины:<br>`;
+                html += `1. У пользователя не установлен @username в Telegram<br>`;
+                html += `2. Форма открыта не через кнопку в боте<br>`;
+                html += `3. Проблема с Telegram WebApp API<br><br>`;
+                html += `Решение: Откройте настройки Telegram → Имя пользователя → Установите @username</div>`;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Показываем отладочную информацию
+        showDebugInfo();
+        
+        // Также выводим в консоль
+        console.log('=== TELEGRAM WEBAPP DEBUG ===');
+        console.log('tg:', tg);
+        console.log('initData:', tg.initData);
+        console.log('initDataUnsafe:', tg.initDataUnsafe);
+        console.log('user:', tg.initDataUnsafe?.user);
+        console.log('username:', tg.initDataUnsafe?.user?.username);
+        console.log('=============================');
+    </script>
+</body>
+</html>
