@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавить операцию</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px; padding-bottom: 80px;
+        }
+        .form-container { max-width: 500px; margin: 0 auto; }
+        h2 { margin-bottom: 20px; color: var(--tg-theme-text-color); font-size: 24px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px; color: var(--tg-theme-hint-color, #999); }
+        input, select, textarea {
+            width: 100%; padding: 12px; border: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+            border-radius: 8px; font-size: 16px; background: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000);
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--tg-theme-button-color, #3390ec); }
+        input:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; }
+        textarea { min-height: 80px; resize: vertical; }
+        .checkbox-group { display: flex; align-items: center; gap: 8px; }
+        .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+        .checkbox-group label { margin: 0; cursor: pointer; }
+        .error { color: #ff3b30; font-size: 13px; margin-top: 4px; display: none; }
+        .error.show { display: block; }
+        .pair-fields { display: none; margin-top: 16px; padding: 16px; background: var(--tg-theme-secondary-bg-color, #f5f5f5); border-radius: 8px; }
+        .pair-fields.active { display: block; }
+        .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .field-grid-3 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .info-text { font-size: 12px; color: #666; margin-bottom: 12px; font-style: italic; }
+        .filled-count { font-size: 12px; color: #666; text-align: right; margin-top: 8px; }
+        .mode-selector {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 20px;
+            background: var(--tg-theme-secondary-bg-color, #f5f5f5); padding: 4px; border-radius: 8px;
+        }
+        .mode-btn {
+            padding: 10px 6px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; background: transparent; color: var(--tg-theme-text-color, #000);
+            transition: all 0.2s; text-align: center;
+        }
+        .mode-btn.active { background: var(--tg-theme-button-color, #3390ec); color: white; }
+        .form-section { display: none; }
+        .form-section.active { display: block; }
+        .cash-section { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .cash-section h3 { font-size: 18px; margin-bottom: 16px; }
+        .cash-section .form-group label { color: rgba(255,255,255,0.9); }
+        .cash-section input { background: rgba(255,255,255,0.9); border: none; color: #000; }
+        .cash-info { background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h2>➕ Добавить операцию</h2>
+        
+        <div class="mode-selector">
+            <button type="button" class="mode-btn active" id="mode-operation">📊 Операция</button>
+            <button type="button" class="mode-btn" id="mode-cash">💰 Касса</button>
+            <button type="button" class="mode-btn" id="mode-euro">💶 Euro</button>
+            <button type="button" class="mode-btn" id="mode-beznal">💳 Безнал</button>
+            <button type="button" class="mode-btn" id="mode-swap">🔄 Перест.</button>
+        </div>
+
+        <form id="operationForm">
+            <!-- СЕКЦИЯ 1: ОПЕРАЦИЯ -->
+            <div class="form-section active" id="operation-section">
+                <div class="form-group">
+                    <label for="date">Дата операции</label>
+                    <input type="date" id="date" name="date" required>
+                </div>
+                <div class="form-group">
+                    <label for="client">Клиент</label>
+                    <input type="text" id="client" name="client" placeholder="Имя клиента" required>
+                </div>
+                <div class="form-group">
+                    <label for="pair">Пара валют</label>
+                    <select id="pair" name="pair" required>
+                        <option value="">Выберите пару</option>
+                        <option value="RUB/EURO">RUB/EURO</option>
+                        <option value="RUB/USDT">RUB/USDT</option>
+                        <option value="USDT/EURO">USDT/EURO</option>
+                    </select>
+                </div>
+                <div id="rub-euro-fields" class="pair-fields">
+                    <div class="info-text">Заполните любые 2 поля из 4</div>
+                    <div class="field-grid">
+                        <div class="form-group">
+                            <label>Рубли</label>
+                            <input type="number" step="0.01" name="rub_euro_rub" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Наценка %</label>
+                            <input type="number" step="0.01" name="rub_euro_nacenka" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Курс</label>
+                            <input type="number" step="0.01" name="rub_euro_kurs" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Евро</label>
+                            <input type="number" step="0.01" name="rub_euro_euro" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="filled-count" id="rub-euro-count">Заполнено: 0 из 2</div>
+                </div>
+                <div id="rub-usdt-fields" class="pair-fields">
+                    <div class="info-text">Заполните любые 2 поля из 4</div>
+                    <div class="field-grid">
+                        <div class="form-group">
+                            <label>Рубли</label>
+                            <input type="number" step="0.01" name="rub_usdt_rub" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Наценка %</label>
+                            <input type="number" step="0.01" name="rub_usdt_nacenka" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Курс</label>
+                            <input type="number" step="0.01" name="rub_usdt_kurs" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>USDT</label>
+                            <input type="number" step="0.01" name="rub_usdt_usdt" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="filled-count" id="rub-usdt-count">Заполнено: 0 из 2</div>
+                </div>
+                <div id="usdt-euro-fields" class="pair-fields">
+                    <div class="info-text">Заполните одно из полей</div>
+                    <div class="field-grid">
+                        <div class="form-group">
+                            <label>USDT</label>
+                            <input type="number" step="0.01" name="usdt_euro_usdt" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Евро</label>
+                            <input type="number" step="0.01" name="usdt_euro_euro" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия % (опционально)</label>
+                            <input type="number" step="0.01" name="usdt_euro_komissiya" placeholder="Если пусто - берётся доплата">
+                        </div>
+                    </div>
+                    <div class="filled-count" id="usdt-euro-count">Заполнено: 0 из 1</div>
+                </div>
+                <div class="form-group" id="payment-status-group" style="display:none;">
+                    <label for="payment_status">Статус оплаты</label>
+                    <select id="payment_status" name="payment_status">
+                        <option value="received">✅ Поступила</option>
+                        <option value="waiting">⏳ Ожидает</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="has_delivery" name="has_delivery">
+                        <label for="has_delivery">Доставит курьер</label>
+                    </div>
+                </div>
+                <div class="form-group" id="comment-group" style="display:none;">
+                    <label for="courier_comment">Комментарий для курьера</label>
+                    <textarea id="courier_comment" name="courier_comment" placeholder="Адрес, время..."></textarea>
+                </div>
+            </div>
+
+            <!-- СЕКЦИЯ 2: ПОПОЛНИТЬ КАССУ -->
+            <div class="form-section" id="cash-section">
+                    <div class="cash-info">
+                        <strong>ℹ️ Операции с кассой:</strong><br>
+                        • Создайте запрос на перевод денег<br>
+                        • Получатель должен подтвердить в ВЕРИФИКАЦИЯ
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="operation_type">Операция</label>
+                        <select id="operation_type">
+                            <option value="">Выберите операцию</option>
+                            <option value="внести">Внести в кассу</option>
+                            <option value="выдать">Выдать из кассы</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="to_user">Пользователь</label>
+                        <select id="to_user">
+                            <option value="">Выберите пользователя</option>
+                            <option value="elcambiodetodo">elcambiodetodo</option>
+                            <option value="buscando_el_paraiso">buscando_el_paraiso</option>
+                            <option value="sibarit8">sibarit8</option>
+                            <option value="miguel8517">miguel8517</option>
+                            <option value="gerasimovav">gerasimovav</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cash_summa">Сумма (EUR)</label>
+                        <input type="number" step="0.01" id="cash_summa" placeholder="0.00" min="0.01">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cash_date">Дата</label>
+                        <input type="date" id="cash_date">
+                    </div>
+                </div>
+
+            <!-- СЕКЦИЯ 3: ПОПОЛНЕНИЕ EURO -->
+            <div class="form-section" id="euro-section">
+                <div class="form-group">
+                    <label for="date_euro">Дата</label>
+                    <input type="date" id="date_euro">
+                </div>
+                <div class="form-group">
+                    <label for="client_euro">Клиент</label>
+                    <input type="text" id="client_euro" placeholder="Имя клиента">
+                </div>
+                <div class="form-group">
+                    <label for="pair_euro">Пара</label>
+                    <select id="pair_euro">
+                        <option value="">Выберите пару</option>
+                        <option value="EURO/RUB">EURO/RUB</option>
+                        <option value="EURO/USDT">EURO/USDT</option>
+                        <option value="EURO(R)/EURO">EURO(R)/EURO</option>
+                    </select>
+                </div>
+                <div id="euro-rub-fields" class="pair-fields">
+                    <div class="info-text">Евро и комиссия</div>
+                    <div class="field-grid">
+                        <div class="form-group">
+                            <label>Евро</label>
+                            <input type="number" step="0.01" name="euro_rub_euro" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия %</label>
+                            <input type="number" step="0.01" name="euro_rub_kom" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div id="euro-usdt-fields" class="pair-fields">
+                    <div class="info-text">Заполните 2 поля: евро+ком ИЛИ usdt+ком</div>
+                    <div class="field-grid-3">
+                        <div class="form-group">
+                            <label>Евро</label>
+                            <input type="number" step="0.01" name="euro_usdt_euro" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия %</label>
+                            <input type="number" step="0.01" name="euro_usdt_kom" placeholder="0.00">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>USDT</label>
+                            <input type="number" step="0.01" name="euro_usdt_usdt" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="filled-count" id="euro-usdt-count">Заполнено: 0 из 2</div>
+                </div>
+                <div id="euror-euro-fields" class="pair-fields">
+                    <div class="info-text">EURO(R) и комиссия (1:1)</div>
+                    <div class="field-grid">
+                        <div class="form-group">
+                            <label>EURO(R)</label>
+                            <input type="number" step="0.01" name="euror_euro_euror" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия %</label>
+                            <input type="number" step="0.01" name="euror_euro_kom" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" id="payment-status-euro-group" style="display:none;">
+                    <label for="payment_status_euro">Статус оплаты</label>
+                    <select id="payment_status_euro">
+                        <option value="received">✅ Поступила</option>
+                        <option value="waiting">⏳ Ожидает</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="has_delivery_euro">
+                        <label for="has_delivery_euro">Доставит курьер</label>
+                    </div>
+                </div>
+                <div class="form-group" id="comment-euro-group" style="display:none;">
+                    <label for="courier_comment_euro">Комментарий</label>
+                    <textarea id="courier_comment_euro" placeholder="Адрес, время..."></textarea>
+                </div>
+            </div>
+
+            <!-- СЕКЦИЯ 4: БЕЗНАЛ -->
+            <div class="form-section" id="beznal-section">
+                <div class="form-group">
+                    <label for="date_beznal">Дата</label>
+                    <input type="date" id="date_beznal">
+                </div>
+                <div class="form-group">
+                    <label for="client_beznal">Клиент</label>
+                    <input type="text" id="client_beznal" placeholder="Имя клиента">
+                </div>
+                <div class="form-group">
+                    <label for="pair_beznal">Пара</label>
+                    <select id="pair_beznal">
+                        <option value="">Выберите пару</option>
+                        <option value="USDT/USD">USDT/USD</option>
+                        <option value="USDT/EURO">USDT/EURO</option>
+                        <option value="EURO/USDT">EURO/USDT</option>
+                        <option value="USD/USDT">USD/USDT</option>
+                    </select>
+                </div>
+                <div id="usdt-usd-fields" class="pair-fields">
+                    <div class="info-text">Заполните 2 поля (курс 1:1)</div>
+                    <div class="field-grid-3">
+                        <div class="form-group">
+                            <label>USDT</label>
+                            <input type="number" step="0.01" name="usdt_usd_usdt" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия %</label>
+                            <input type="number" step="0.01" name="usdt_usd_kom" placeholder="0.00">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>USD</label>
+                            <input type="number" step="0.01" name="usdt_usd_usd" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="filled-count" id="usdt-usd-count">Заполнено: 0 из 2</div>
+                </div>
+                <div id="usdt-euro-beznal-fields" class="pair-fields">
+                    <div class="info-text">Заполните 2 поля</div>
+                    <div class="field-grid-3">
+                        <div class="form-group">
+                            <label>USDT</label>
+                            <input type="number" step="0.01" name="usdt_euro_bez_usdt" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия %</label>
+                            <input type="number" step="0.01" name="usdt_euro_bez_kom" placeholder="0.00">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>EURO</label>
+                            <input type="number" step="0.01" name="usdt_euro_bez_euro" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="filled-count" id="usdt-euro-bez-count">Заполнено: 0 из 2</div>
+                </div>
+                <div id="euro-usdt-beznal-fields" class="pair-fields">
+                    <div class="info-text">Заполните 2 поля</div>
+                    <div class="field-grid-3">
+                        <div class="form-group">
+                            <label>EURO</label>
+                            <input type="number" step="0.01" name="euro_usdt_bez_euro" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия %</label>
+                            <input type="number" step="0.01" name="euro_usdt_bez_kom" placeholder="0.00">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>USDT</label>
+                            <input type="number" step="0.01" name="euro_usdt_bez_usdt" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="filled-count" id="euro-usdt-bez-count">Заполнено: 0 из 2</div>
+                </div>
+                <div id="usd-usdt-fields" class="pair-fields">
+                    <div class="info-text">Заполните 2 поля (курс 1:1)</div>
+                    <div class="field-grid-3">
+                        <div class="form-group">
+                            <label>USD</label>
+                            <input type="number" step="0.01" name="usd_usdt_usd" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия %</label>
+                            <input type="number" step="0.01" name="usd_usdt_kom" placeholder="0.00">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>USDT</label>
+                            <input type="number" step="0.01" name="usd_usdt_usdt" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="filled-count" id="usd-usdt-count">Заполнено: 0 из 2</div>
+                </div>
+                <div class="form-group" id="payment-status-beznal-group" style="display:none;">
+                    <label for="payment_status_beznal">Статус оплаты</label>
+                    <select id="payment_status_beznal">
+                        <option value="received">✅ Поступила</option>
+                        <option value="waiting">⏳ Ожидает</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="has_delivery_beznal">
+                        <label for="has_delivery_beznal">Доставит курьер</label>
+                    </div>
+                </div>
+                <div class="form-group" id="comment-beznal-group" style="display:none;">
+                    <label for="courier_comment_beznal">Комментарий</label>
+                    <textarea id="courier_comment_beznal" placeholder="Адрес, время..."></textarea>
+                </div>
+            </div>
+
+            <!-- СЕКЦИЯ 5: ПЕРЕСТАНОВКИ -->
+            <div class="form-section" id="swap-section">
+                <div class="form-group">
+                    <label for="date_swap">Дата</label>
+                    <input type="date" id="date_swap">
+                </div>
+                <div class="form-group">
+                    <label for="client_swap">Клиент</label>
+                    <input type="text" id="client_swap" placeholder="Имя клиента">
+                </div>
+                <div class="form-group">
+                    <label for="pair_swap">Пара</label>
+                    <select id="pair_swap">
+                        <option value="">Выберите пару</option>
+                        <option value="USDT/USD(П)">USDT/USD(П)</option>
+                        <option value="USDT/EURO(П)">USDT/EURO(П)</option>
+                    </select>
+                </div>
+                <div id="usdt-usd-swap-fields" class="pair-fields">
+                    <div class="info-text">USD и комиссия (курс 1:1)</div>
+                    <div class="field-grid">
+                        <div class="form-group">
+                            <label>USD (получаем)</label>
+                            <input type="number" step="0.01" name="usdt_usd_swap_usd" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия %</label>
+                            <input type="number" step="0.01" name="usdt_usd_swap_kom" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div id="usdt-euro-swap-fields" class="pair-fields">
+                    <div class="info-text">EURO и комиссия</div>
+                    <div class="field-grid">
+                        <div class="form-group">
+                            <label>EURO (получаем)</label>
+                            <input type="number" step="0.01" name="usdt_euro_swap_euro" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Комиссия %</label>
+                            <input type="number" step="0.01" name="usdt_euro_swap_kom" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" id="payment-status-swap-group" style="display:none;">
+                    <label for="payment_status_swap">Статус оплаты</label>
+                    <select id="payment_status_swap">
+                        <option value="received">✅ Поступила</option>
+                        <option value="waiting">⏳ Ожидает</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="has_delivery_swap">
+                        <label for="has_delivery_swap">Доставит курьер</label>
+                    </div>
+                </div>
+                <div class="form-group" id="comment-swap-group" style="display:none;">
+                    <label for="courier_comment_swap">Комментарий</label>
+                    <textarea id="courier_comment_swap" placeholder="Адрес, время..."></textarea>
+                </div>
+            </div>
+            
+            <div class="error" id="error-message"></div>
+        </form>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready(); tg.expand();
+
+        const form = document.getElementById('operationForm');
+        const errorMessage = document.getElementById('error-message');
+        let currentMode = 'operation';
+
+        // Установка дат
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+        document.getElementById('cash_date').value = today;
+        document.getElementById('date_euro').value = today;
+        document.getElementById('date_beznal').value = today;
+        document.getElementById('date_swap').value = today;
+
+        // Переключатели режимов
+        const modes = ['operation', 'cash', 'euro', 'beznal', 'swap'];
+        modes.forEach(mode => {
+            document.getElementById(`mode-${mode}`).addEventListener('click', () => {
+                currentMode = mode;
+                modes.forEach(m => {
+                    document.getElementById(`mode-${m}`).classList.toggle('active', m === mode);
+                    document.getElementById(`${m}-section`).classList.toggle('active', m === mode);
+                });
+                const btnTexts = {
+                    operation: 'Создать операцию',
+                    cash: 'Пополнить кассу',
+                    euro: 'Создать операцию Euro',
+                    beznal: 'Создать безнал',
+                    swap: 'Создать перестановку'
+                };
+                tg.MainButton.setText(btnTexts[mode]);
+            });
+        });
+
+        // Пары для ОПЕРАЦИЯ
+        const pairSelect = document.getElementById('pair');
+        const pairFields = {
+            'RUB/EURO': document.getElementById('rub-euro-fields'),
+            'RUB/USDT': document.getElementById('rub-usdt-fields'),
+            'USDT/EURO': document.getElementById('usdt-euro-fields')
+        };
+        pairSelect.addEventListener('change', () => {
+            Object.values(pairFields).forEach(f => f.classList.remove('active'));
+            if (pairFields[pairSelect.value]) pairFields[pairSelect.value].classList.add('active');
+            document.getElementById('payment-status-group').style.display = pairSelect.value ? 'block' : 'none';
+        });
+
+        // Пары для EURO
+        const pairEuro = document.getElementById('pair_euro');
+        const euroFields = {
+            'EURO/RUB': document.getElementById('euro-rub-fields'),
+            'EURO/USDT': document.getElementById('euro-usdt-fields'),
+            'EURO(R)/EURO': document.getElementById('euror-euro-fields')
+        };
+        pairEuro.addEventListener('change', () => {
+            Object.values(euroFields).forEach(f => f.classList.remove('active'));
+            if (euroFields[pairEuro.value]) euroFields[pairEuro.value].classList.add('active');
+            document.getElementById('payment-status-euro-group').style.display = pairEuro.value ? 'block' : 'none';
+        });
+
+        // Пары для БЕЗНАЛ
+        const pairBeznal = document.getElementById('pair_beznal');
+        const beznalFields = {
+            'USDT/USD': document.getElementById('usdt-usd-fields'),
+            'USDT/EURO': document.getElementById('usdt-euro-beznal-fields'),
+            'EURO/USDT': document.getElementById('euro-usdt-beznal-fields'),
+            'USD/USDT': document.getElementById('usd-usdt-fields')
+        };
+        pairBeznal.addEventListener('change', () => {
+            Object.values(beznalFields).forEach(f => f.classList.remove('active'));
+            if (beznalFields[pairBeznal.value]) beznalFields[pairBeznal.value].classList.add('active');
+            document.getElementById('payment-status-beznal-group').style.display = pairBeznal.value ? 'block' : 'none';
+        });
+
+        // Пары для ПЕРЕСТАНОВКИ
+        const pairSwap = document.getElementById('pair_swap');
+        const swapFields = {
+            'USDT/USD(П)': document.getElementById('usdt-usd-swap-fields'),
+            'USDT/EURO(П)': document.getElementById('usdt-euro-swap-fields')
+        };
+        pairSwap.addEventListener('change', () => {
+            Object.values(swapFields).forEach(f => f.classList.remove('active'));
+            if (swapFields[pairSwap.value]) swapFields[pairSwap.value].classList.add('active');
+            document.getElementById('payment-status-swap-group').style.display = pairSwap.value ? 'block' : 'none';
+        });
+
+        // Доставка чекбоксы
+        document.getElementById('has_delivery').addEventListener('change', e => {
+            document.getElementById('comment-group').style.display = e.target.checked ? 'block' : 'none';
+        });
+        document.getElementById('has_delivery_euro').addEventListener('change', e => {
+            document.getElementById('comment-euro-group').style.display = e.target.checked ? 'block' : 'none';
+        });
+        document.getElementById('has_delivery_beznal').addEventListener('change', e => {
+            document.getElementById('comment-beznal-group').style.display = e.target.checked ? 'block' : 'none';
+        });
+        document.getElementById('has_delivery_swap').addEventListener('change', e => {
+            document.getElementById('comment-swap-group').style.display = e.target.checked ? 'block' : 'none';
+        });
+
+        // Подсчёт заполненных полей
+        function updateCount(selector, countId, min) {
+            const fields = document.querySelectorAll(selector);
+            let filled = 0;
+            fields.forEach(f => { if (f.value && f.value.trim()) filled++; });
+            const el = document.getElementById(countId);
+            if (el) el.textContent = `Заполнено: ${filled} из ${min}`;
+            return filled;
+        }
+
+        document.querySelectorAll('#rub-euro-fields input').forEach(i => i.addEventListener('input', () => updateCount('#rub-euro-fields input[type="number"]', 'rub-euro-count', 2)));
+        document.querySelectorAll('#rub-usdt-fields input').forEach(i => i.addEventListener('input', () => updateCount('#rub-usdt-fields input[type="number"]', 'rub-usdt-count', 2)));
+        document.querySelectorAll('#usdt-euro-fields input').forEach(i => i.addEventListener('input', () => updateCount('#usdt-euro-fields input[type="number"]', 'usdt-euro-count', 1)));
+        document.querySelectorAll('#euro-usdt-fields input').forEach(i => i.addEventListener('input', () => updateCount('#euro-usdt-fields input[type="number"]', 'euro-usdt-count', 2)));
+        document.querySelectorAll('#usdt-usd-fields input').forEach(i => i.addEventListener('input', () => updateCount('#usdt-usd-fields input[type="number"]', 'usdt-usd-count', 2)));
+        document.querySelectorAll('#usdt-euro-beznal-fields input').forEach(i => i.addEventListener('input', () => updateCount('#usdt-euro-beznal-fields input[type="number"]', 'usdt-euro-bez-count', 2)));
+        document.querySelectorAll('#euro-usdt-beznal-fields input').forEach(i => i.addEventListener('input', () => updateCount('#euro-usdt-beznal-fields input[type="number"]', 'euro-usdt-bez-count', 2)));
+        document.querySelectorAll('#usd-usdt-fields input').forEach(i => i.addEventListener('input', () => updateCount('#usd-usdt-fields input[type="number"]', 'usd-usdt-count', 2)));
+
+        // MainButton
+        tg.MainButton.setText('Создать операцию');
+        tg.MainButton.show();
+        tg.MainButton.onClick(() => {
+            if (currentMode === 'cash') submitCash();
+            else if (currentMode === 'operation') submitOperation();
+            else if (currentMode === 'euro') submitEuro();
+            else if (currentMode === 'beznal') submitBeznal();
+            else if (currentMode === 'swap') submitSwap();
+        });
+
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorMessage.classList.add('show');
+        }
+
+        function submitCash() {
+            const operation_type = document.getElementById('operation_type').value;
+            const to_user = document.getElementById('to_user').value;
+            const summa = parseFloat(document.getElementById('cash_summa').value);
+            const date = document.getElementById('cash_date').value;
+            
+            if (!operation_type) return showError('Выберите операцию');
+            if (!to_user) return showError('Выберите пользователя');
+            if (!summa || summa <= 0) return showError('Укажите сумму');
+            if (!date) return showError('Укажите дату');
+            
+            tg.sendData(JSON.stringify({ 
+                action: 'add_cash', 
+                operation_type, 
+                to_user, 
+                summa, 
+                date 
+            }));
+        }
+
+        function submitOperation() {
+            const data = Object.fromEntries(new FormData(form));
+            const pair = data.pair;
+            if (!pair) return showError('Выберите пару');
+
+            let filledFields = {};
+            if (pair === 'RUB/EURO') {
+                const fields = { rub: data.rub_euro_rub, nacenka: data.rub_euro_nacenka, kurs: data.rub_euro_kurs, euro: data.rub_euro_euro };
+                filledFields = Object.entries(fields).filter(([k,v]) => v && v !== '').reduce((o, [k,v]) => ({...o, [k]: parseFloat(v)}), {});
+                if (Object.keys(filledFields).length < 2) return showError('Заполните минимум 2 поля');
+            } else if (pair === 'RUB/USDT') {
+                const fields = { rub: data.rub_usdt_rub, nacenka: data.rub_usdt_nacenka, kurs: data.rub_usdt_kurs, usdt: data.rub_usdt_usdt };
+                filledFields = Object.entries(fields).filter(([k,v]) => v && v !== '').reduce((o, [k,v]) => ({...o, [k]: parseFloat(v)}), {});
+                if (Object.keys(filledFields).length < 2) return showError('Заполните минимум 2 поля');
+            } else if (pair === 'USDT/EURO') {
+                const fields = { usdt: data.usdt_euro_usdt, euro: data.usdt_euro_euro, komissiya: data.usdt_euro_komissiya };
+                filledFields = Object.entries(fields).filter(([k,v]) => v && v !== '').reduce((o, [k,v]) => ({...o, [k]: parseFloat(v)}), {});
+                if (Object.keys(filledFields).length < 1) return showError('Заполните хотя бы одно поле');
+            }
+
+            tg.sendData(JSON.stringify({
+                date: data.date,
+                client: data.client,
+                pair: data.pair,
+                filled_fields: filledFields,
+                has_delivery: data.has_delivery === 'on',
+                courier_comment: data.courier_comment || '',
+                payment_status: data.payment_status || 'received'
+            }));
+        }
+
+        function submitEuro() {
+            const pair = document.getElementById('pair_euro').value;
+            const date = document.getElementById('date_euro').value;
+            const client = document.getElementById('client_euro').value;
+
+            if (!pair) return showError('Выберите пару');
+            if (!date) return showError('Укажите дату');
+            if (!client) return showError('Укажите клиента');
+
+            const data = Object.fromEntries(new FormData(form));
+            let fields = {};
+
+            if (pair === 'EURO/RUB') {
+                const euro = parseFloat(data.euro_rub_euro);
+                const kom = parseFloat(data.euro_rub_kom);
+                if (!euro || !kom) return showError('Заполните евро и комиссию');
+                fields = { euro, komissiya: kom };
+            } else if (pair === 'EURO/USDT') {
+                const euro = data.euro_usdt_euro ? parseFloat(data.euro_usdt_euro) : null;
+                const usdt = data.euro_usdt_usdt ? parseFloat(data.euro_usdt_usdt) : null;
+                const kom = parseFloat(data.euro_usdt_kom);
+                if (!kom) return showError('Укажите комиссию');
+                const filled = [euro, usdt].filter(v => v !== null).length;
+                if (filled !== 1) return showError('Заполните евро ИЛИ usdt (не оба)');
+                fields = { euro, usdt, komissiya: kom };
+            } else if (pair === 'EURO(R)/EURO') {
+                const euror = parseFloat(data.euror_euro_euror);
+                const kom = parseFloat(data.euror_euro_kom);
+                if (!euror || !kom) return showError('Заполните EURO(R) и комиссию');
+                fields = { euror, komissiya: kom };
+            }
+
+            tg.sendData(JSON.stringify({
+                action: 'euro_operation',
+                date, client, pair, fields,
+                has_delivery: document.getElementById('has_delivery_euro').checked,
+                courier_comment: document.getElementById('courier_comment_euro').value || '',
+                payment_status: document.getElementById('payment_status_euro').value || 'received'
+            }));
+        }
+
+        function submitBeznal() {
+            const pair = document.getElementById('pair_beznal').value;
+            const date = document.getElementById('date_beznal').value;
+            const client = document.getElementById('client_beznal').value;
+
+            if (!pair) return showError('Выберите пару');
+            if (!date) return showError('Укажите дату');
+            if (!client) return showError('Укажите клиента');
+
+            const data = Object.fromEntries(new FormData(form));
+            let fields = {};
+
+            if (pair === 'USDT/USD') {
+                const usdt = data.usdt_usd_usdt ? parseFloat(data.usdt_usd_usdt) : null;
+                const usd = data.usdt_usd_usd ? parseFloat(data.usdt_usd_usd) : null;
+                const kom = parseFloat(data.usdt_usd_kom);
+                if (!kom) return showError('Укажите комиссию');
+                const filled = [usdt, usd].filter(v => v !== null).length;
+                if (filled !== 1) return showError('Заполните USDT ИЛИ USD (не оба)');
+                fields = { usdt, usd, komissiya: kom };
+            } else if (pair === 'USDT/EURO') {
+                const usdt = data.usdt_euro_bez_usdt ? parseFloat(data.usdt_euro_bez_usdt) : null;
+                const euro = data.usdt_euro_bez_euro ? parseFloat(data.usdt_euro_bez_euro) : null;
+                const kom = parseFloat(data.usdt_euro_bez_kom);
+                if (!kom) return showError('Укажите комиссию');
+                const filled = [usdt, euro].filter(v => v !== null).length;
+                if (filled !== 1) return showError('Заполните USDT ИЛИ EURO (не оба)');
+                fields = { usdt, euro, komissiya: kom };
+            } else if (pair === 'EURO/USDT') {
+                const euro = data.euro_usdt_bez_euro ? parseFloat(data.euro_usdt_bez_euro) : null;
+                const usdt = data.euro_usdt_bez_usdt ? parseFloat(data.euro_usdt_bez_usdt) : null;
+                const kom = parseFloat(data.euro_usdt_bez_kom);
+                if (!kom) return showError('Укажите комиссию');
+                const filled = [euro, usdt].filter(v => v !== null).length;
+                if (filled !== 1) return showError('Заполните EURO ИЛИ USDT (не оба)');
+                fields = { euro, usdt, komissiya: kom };
+            } else if (pair === 'USD/USDT') {
+                const usd = data.usd_usdt_usd ? parseFloat(data.usd_usdt_usd) : null;
+                const usdt = data.usd_usdt_usdt ? parseFloat(data.usd_usdt_usdt) : null;
+                const kom = parseFloat(data.usd_usdt_kom);
+                if (!kom) return showError('Укажите комиссию');
+                const filled = [usd, usdt].filter(v => v !== null).length;
+                if (filled !== 1) return showError('Заполните USD ИЛИ USDT (не оба)');
+                fields = { usd, usdt, komissiya: kom };
+            }
+
+            tg.sendData(JSON.stringify({
+                action: 'beznal_operation',
+                date, client, pair, fields,
+                has_delivery: document.getElementById('has_delivery_beznal').checked,
+                courier_comment: document.getElementById('courier_comment_beznal').value || '',
+                payment_status: document.getElementById('payment_status_beznal').value || 'received'
+            }));
+        }
+
+        function submitSwap() {
+            const pair = document.getElementById('pair_swap').value;
+            const date = document.getElementById('date_swap').value;
+            const client = document.getElementById('client_swap').value;
+
+            if (!pair) return showError('Выберите пару');
+            if (!date) return showError('Укажите дату');
+            if (!client) return showError('Укажите клиента');
+
+            const data = Object.fromEntries(new FormData(form));
+            let fields = {};
+
+            if (pair === 'USDT/USD(П)') {
+                const usd = parseFloat(data.usdt_usd_swap_usd);
+                const kom = parseFloat(data.usdt_usd_swap_kom);
+                if (!usd || !kom) return showError('Заполните USD и комиссию');
+                fields = { usd, komissiya: kom };
+            } else if (pair === 'USDT/EURO(П)') {
+                const euro = parseFloat(data.usdt_euro_swap_euro);
+                const kom = parseFloat(data.usdt_euro_swap_kom);
+                if (!euro || !kom) return showError('Заполните EURO и комиссию');
+                fields = { euro, komissiya: kom };
+            }
+
+            tg.sendData(JSON.stringify({
+                action: 'swap_operation',
+                date, client, pair, fields,
+                has_delivery: document.getElementById('has_delivery_swap').checked,
+                courier_comment: document.getElementById('courier_comment_swap').value || '',
+                payment_status: document.getElementById('payment_status_swap').value || 'received'
+            }));
+        }
+    </script>
+</body>
+</html>

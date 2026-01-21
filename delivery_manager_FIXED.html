@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои доставки</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 100%;
+            padding: 16px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        #loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .spinner {
+            border: 3px solid rgba(102, 126, 234, 0.2);
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #content {
+            display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .empty-state .icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .deliveries-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .deliveries-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .deliveries-table th {
+            padding: 14px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .deliveries-table td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        .deliveries-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .deliveries-table tbody tr:hover {
+            background: #f8f9ff;
+        }
+
+        .delivery-id {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        .client-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .client-name.has-username {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .amount {
+            font-weight: 600;
+            color: #2ecc71;
+            font-size: 15px;
+        }
+
+        .payment-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .payment-status.waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .payment-status.received {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .payment-status.confirmed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .payment-status-icon {
+            font-size: 14px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-start;
+        }
+
+        .btn-icon {
+            background: none;
+            border: 2px solid #ddd;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-icon:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn-icon.payment {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .btn-icon.payment:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-icon.edit {
+            border-color: #3498db;
+            color: #3498db;
+        }
+
+        .btn-icon.edit:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-icon.cancel {
+            border-color: #e74c3c;
+            color: #e74c3c;
+        }
+
+        .btn-icon.cancel:hover {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .date-time {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .pair-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #f0f0f0;
+            color: #555;
+        }
+
+        .comment {
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+            margin-top: 4px;
+        }
+
+        .created-by {
+            font-size: 11px;
+            color: #999;
+            margin-top: 2px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .deliveries-table {
+                font-size: 12px;
+            }
+
+            .deliveries-table th,
+            .deliveries-table td {
+                padding: 10px 8px;
+            }
+
+            .btn-icon {
+                padding: 6px 10px;
+                font-size: 18px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #333;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .modal-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-button.primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .modal-button.primary:hover {
+            background: #5568d3;
+        }
+
+        .modal-button.secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .modal-button.secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .modal-button.danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .modal-button.danger:hover {
+            background: #c0392b;
+        }
+
+        .modal-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .modal-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .info-text {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+
+        .current-value {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c00;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span>📦</span>
+                <span>Управление доставками</span>
+            </h1>
+            <div class="subtitle" id="user-info">Загрузка...</div>
+        </div>
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>Загрузка доставок...</div>
+        </div>
+
+        <div id="content">
+            <div id="deliveries-container"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для изменения статуса оплаты -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">💰 Статус оплаты</div>
+            <div class="modal-body">
+                <div class="info-text">
+                    Доставка #<span id="payment-delivery-id"></span><br>
+                    Текущий статус: <span class="current-value" id="payment-current-status"></span>
+                </div>
+                <select id="payment-status-select" class="modal-select">
+                    <option value="waiting">⏳ Ожидает (waiting)</option>
+                    <option value="received">✅ Получена (received)</option>
+                    <option value="confirmed">👤 Подтверждена (confirmed)</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="closePaymentModal()">Отмена</button>
+                <button class="modal-button primary" onclick="confirmPaymentStatus()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для изменения суммы -->
+    <div id="amount-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">✏️ Изменить сумму</div>
+            <div class="modal-body">
+                <div class="info-text">
+                    Доставка #<span id="amount-delivery-id"></span><br>
+                    Текущая сумма: <span class="current-value" id="amount-current-value"></span> EUR
+                </div>
+                <input type="number" id="amount-input" class="modal-input" placeholder="Введите новую сумму" step="0.01" min="0">
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="closeAmountModal()">Отмена</button>
+                <button class="modal-button primary" onclick="confirmAmount()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для отмены доставки -->
+    <div id="cancel-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">❌ Отменить доставку</div>
+            <div class="modal-body">
+                <div class="info-text">
+                    Вы уверены что хотите отменить доставку #<span id="cancel-delivery-id"></span>?
+                </div>
+                <textarea id="cancel-reason" class="modal-textarea" placeholder="Причина отмены (необязательно)"></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="closeCancelModal()">Назад</button>
+                <button class="modal-button danger" onclick="confirmCancel()">Отменить доставку</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxYJqkAsbvSa63oeqxNmBp05NQIQuOLZyDzjscwvnDU4a-SCfrKe1JTicTlofscgUF-yg/exec';
+
+        let deliveries = [];
+        let currentDeliveryId = null;
+
+        // Инициализация - НЕ НУЖЕН USERNAME!
+        async function init() {
+            try {
+                document.getElementById('user-info').textContent = 'Ваши доставки';
+                await loadDeliveries();
+            } catch (error) {
+                console.error('Init error:', error);
+                showError('Ошибка инициализации');
+            }
+        }
+
+        // Загрузка доставок
+        async function loadDeliveries() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('content').style.display = 'none';
+
+                console.log('Fetching deliveries from:', API_URL);
+
+                const response = await fetch(`${API_URL}?action=get_deliveries`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('API response:', data);
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                deliveries = data.deliveries || [];
+                console.log('Loaded deliveries:', deliveries.length);
+
+                // Рендерим (БЕЗ фильтрации - бот сам фильтрует)
+                renderDeliveries();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+            } catch (error) {
+                console.error('Load error:', error);
+                showError('Ошибка загрузки доставок: ' + error.message);
+            }
+        }
+
+        // Рендер доставок
+        function renderDeliveries() {
+            const container = document.getElementById('deliveries-container');
+
+            if (deliveries.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">📭</div>
+                        <div>Нет активных доставок</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <table class="deliveries-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Дата</th>
+                            <th>Клиент</th>
+                            <th>Операция</th>
+                            <th>Сумма</th>
+                            <th>Оплата</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            deliveries.forEach(d => {
+                const paymentStatusClass = d.payment_status || 'waiting';
+                const paymentStatusText = getPaymentStatusText(d.payment_status);
+                const paymentStatusIcon = getPaymentStatusIcon(d.payment_status);
+
+                // Проверяем есть ли @ в имени клиента
+                // ВАЖНО: конвертируем в строку и проверяем безопасно
+                const clientStr = d.client ? String(d.client).trim() : '';
+                const hasUsername = clientStr.startsWith('@');
+                const clientDisplay = hasUsername 
+                    ? `<a href="https://t.me/${clientStr.substring(1)}" class="client-name has-username" target="_blank">${clientStr}</a>`
+                    : `<span class="client-name">${clientStr || 'N/A'}</span>`;
+
+                html += `
+                    <tr>
+                        <td><span class="delivery-id">#${d.buffer_id}</span></td>
+                        <td>
+                            <div>${d.date || 'N/A'}</div>
+                            ${d.created_at ? `<div class="date-time">${formatTime(d.created_at)}</div>` : ''}
+                        </td>
+                        <td>
+                            ${clientDisplay}
+                            ${d.courier_comment ? `<div class="comment">${d.courier_comment}</div>` : ''}
+                            ${d.created_by ? `<div class="created-by">Создал: @${d.created_by}</div>` : ''}
+                        </td>
+                        <td><span class="pair-badge">${d.pair || 'N/A'}</span></td>
+                        <td><span class="amount">${formatAmount(d.vydano)} EUR</span></td>
+                        <td>
+                            <span class="payment-status ${paymentStatusClass}">
+                                <span class="payment-status-icon">${paymentStatusIcon}</span>
+                                <span>${paymentStatusText}</span>
+                            </span>
+                        </td>
+                        <td class="actions">
+                            <button class="btn-icon payment" onclick="openPaymentModal(${d.buffer_id})" title="Изменить статус оплаты">
+                                💰
+                            </button>
+                            <button class="btn-icon edit" onclick="openAmountModal(${d.buffer_id})" title="Изменить сумму">
+                                ✏️
+                            </button>
+                            <button class="btn-icon cancel" onclick="openCancelModal(${d.buffer_id})" title="Отменить доставку">
+                                ❌
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Вспомогательные функции
+        function getPaymentStatusText(status) {
+            switch(status) {
+                case 'waiting': return 'Ожидает';
+                case 'received': return 'Получена';
+                case 'confirmed': return 'Подтверждена';
+                default: return 'Ожидает';
+            }
+        }
+
+        function getPaymentStatusIcon(status) {
+            switch(status) {
+                case 'waiting': return '⏳';
+                case 'received': return '✅';
+                case 'confirmed': return '👤';
+                default: return '⏳';
+            }
+        }
+
+        function formatAmount(amount) {
+            return parseFloat(amount || 0).toFixed(2);
+        }
+
+        function formatTime(isoString) {
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return '';
+            }
+        }
+
+        function findDeliveryById(id) {
+            return deliveries.find(d => d.buffer_id === id);
+        }
+
+        // Модальное окно: Статус оплаты
+        function openPaymentModal(deliveryId) {
+            const delivery = findDeliveryById(deliveryId);
+            if (!delivery) return;
+
+            currentDeliveryId = deliveryId;
+            document.getElementById('payment-delivery-id').textContent = deliveryId;
+            document.getElementById('payment-current-status').textContent = getPaymentStatusText(delivery.payment_status);
+            document.getElementById('payment-status-select').value = delivery.payment_status || 'waiting';
+
+            document.getElementById('payment-modal').classList.add('active');
+        }
+
+        function closePaymentModal() {
+            document.getElementById('payment-modal').classList.remove('active');
+            currentDeliveryId = null;
+        }
+
+        function confirmPaymentStatus() {
+            const newStatus = document.getElementById('payment-status-select').value;
+
+            // Отправляем в бот через sendData (бот САМ знает username)
+            tg.sendData(JSON.stringify({
+                action: 'change_payment_status',
+                buffer_id: currentDeliveryId,
+                payment_status: newStatus
+            }));
+
+            closePaymentModal();
+        }
+
+        // Модальное окно: Сумма
+        function openAmountModal(deliveryId) {
+            const delivery = findDeliveryById(deliveryId);
+            if (!delivery) return;
+
+            currentDeliveryId = deliveryId;
+            document.getElementById('amount-delivery-id').textContent = deliveryId;
+            document.getElementById('amount-current-value').textContent = formatAmount(delivery.vydano);
+            document.getElementById('amount-input').value = formatAmount(delivery.vydano);
+
+            document.getElementById('amount-modal').classList.add('active');
+        }
+
+        function closeAmountModal() {
+            document.getElementById('amount-modal').classList.remove('active');
+            currentDeliveryId = null;
+        }
+
+        function confirmAmount() {
+            const newAmount = parseFloat(document.getElementById('amount-input').value);
+
+            if (isNaN(newAmount) || newAmount <= 0) {
+                alert('Введите корректную сумму');
+                return;
+            }
+
+            // Отправляем в бот
+            tg.sendData(JSON.stringify({
+                action: 'change_delivery_summa',
+                buffer_id: currentDeliveryId,
+                vydano: newAmount
+            }));
+
+            closeAmountModal();
+        }
+
+        // Модальное окно: Отмена
+        function openCancelModal(deliveryId) {
+            currentDeliveryId = deliveryId;
+            document.getElementById('cancel-delivery-id').textContent = deliveryId;
+            document.getElementById('cancel-reason').value = '';
+
+            document.getElementById('cancel-modal').classList.add('active');
+        }
+
+        function closeCancelModal() {
+            document.getElementById('cancel-modal').classList.remove('active');
+            currentDeliveryId = null;
+        }
+
+        function confirmCancel() {
+            const reason = document.getElementById('cancel-reason').value;
+
+            // Отправляем в бот
+            tg.sendData(JSON.stringify({
+                action: 'cancel_delivery',
+                buffer_id: currentDeliveryId,
+                reason: reason
+            }));
+
+            closeCancelModal();
+        }
+
+        // Показ ошибки
+        function showError(message) {
+            document.getElementById('loading').innerHTML = `
+                <div class="error-message">
+                    <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
+                    <div>${message}</div>
+                </div>
+            `;
+        }
+
+        // Запуск
+        init();
+    </script>
+</body>
+</html>
